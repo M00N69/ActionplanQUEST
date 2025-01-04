@@ -138,11 +138,11 @@ def generate_dynamic_questions(guide_row, non_conformity):
     exigence_text = non_conformity['Exigence IFS Food 8']
     audit_comment = non_conformity['Explication (par l’auditeur/l’évaluateur)']
     
-    # Générer des questions techniques et spécifiques
+    # Générer des questions techniques et spécifiques en français
     questions = [
-        f"Quel est le type de produit concerné et comment cela influence-t-il la gestion des risques ? (Contexte: {good_practice})",
-        f"Quelles sont les procédures actuelles pour répondre à cette exigence ? (Contexte: {elements_to_check})",
-        f"Quelles mesures supplémentaires pourriez-vous mettre en place pour améliorer la conformité ? (Contexte: {example_questions})"
+        f"Quel est le type de produit concerné et comment cela influence-t-il la gestion des risques ? (Orientation: {good_practice})",
+        f"Quelles sont les procédures actuelles pour répondre à cette exigence ? (Orientation: {elements_to_check})",
+        f"Quelles mesures supplémentaires pourriez-vous mettre en place pour améliorer la conformité ? (Orientation: {example_questions})"
     ]
     
     return questions
