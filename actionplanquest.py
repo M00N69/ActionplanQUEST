@@ -62,75 +62,88 @@ def load_action_plan(uploaded_file):
         action_plan_df.columns = ["Numéro d'exigence", "Exigence IFS Food 8", "Explication (par l’auditeur/l’évaluateur)"]
         return action_plan_df
     except Exception as e:
-        st.error(f"Erreur lors de la lecture du fichier: {str(e)}")
+        st.error(f"Erreur lors de la lecture du fichier : {str(e)}")
         return None
 
-# Fonction pour générer des questions dynamiques adaptées en français
+# Fonction pour générer une recommandation avec Groq et CoT
+def generate_ai_recommendation_groq(non_conformity, guide_row, additional_context):
+    groq = get_groq_provider()
+    if not groq:
+        return "Erreur: clé API non fournie."
+
+    general_context = (
+        "En tant qu'expert en IFS Food 8 et en technologies alimentaires, pour chaque non-conformité constatée lors d'un audit, veuillez fournir :\n"
+        "- une recommandation de correction (action immédiate),\n"
+        "- le type de preuve attendu (élément tangible comme photo ou document),\n"
+        "- une analyse de la cause probable (identifier l'origine de la non-conformité),\n"
+        "- une recommandation d'action corrective (éliminer la cause racine pour prévenir la réapparition).\n"
+    )
+    prompt = f"""
+    {general_context}
+    Non-conformité issue d'un audit IFS Food 8 :
+    - Exigence : {non_conformity['Numéro d\'exigence']}
+    - Description : {non_conformity['Exigence IFS Food 8']}
+    - Constat détaillé : {non_conformity['Explication (par l’auditeur/l’évaluateur)']}
+    Guide IFSv8 :
+    - Bonnes pratiques : {guide_row['Good practice']}
+    - Éléments à vérifier : {guide_row['Elements to check']}
+    - Questions exemples : {guide_row['Example questions']}
+    Contexte supplémentaire :
+    - {additional_context}
+    Fournissez une recommandation complète en appliquant une réflexion étape par étape.
+    """
+    try:
+        return groq.generate(prompt, max_tokens=1500, temperature=0, use_cot=True)
+    except Exception as e:
+        st.error(f"Erreur lors de la génération de la recommandation : {str(e)}")
+        return None
+
+# Fonction pour récupérer les informations du guide
+def get_guide_info(num_exigence, guide_df):
+    try:
+        guide_row = guide_df[guide_df['NUM_REQ'].str.contains(str(num_exigence), na=False)]
+        if guide_row.empty:
+            st.error(f"Aucune correspondance trouvée pour l'exigence : {num_exigence}")
+            return None
+        return guide_row.iloc[0]
+    except Exception as e:
+        st.error(f"Erreur lors de la recherche dans le guide : {str(e)}")
+        return None
+
+# Fonction pour générer des questions dynamiques
 def generate_dynamic_questions(guide_row, non_conformity):
     bonnes_pratiques = guide_row.get('Good practice', 'Non spécifié')
     elements_a_verifier = guide_row.get('Elements to check', 'Non spécifié')
     exemple_questions = guide_row.get('Example questions', 'Non spécifié')
-    
     exigence_text = non_conformity['Exigence IFS Food 8']
-    audit_comment = non_conformity['Explication (par l’auditeur/l’évaluateur)']
     
-    questions = []
-    
-    # Question 1 : Sur les pratiques actuelles
-    questions.append(
-        f"Selon le commentaire de l'auditeur, des améliorations sont nécessaires concernant : '{exigence_text}'. "
-        f"Quelles sont les pratiques actuelles sur le site pour répondre à cette exigence ? "
-        f"(Bonnes pratiques à suivre : {bonnes_pratiques})"
-    )
-    
-    # Question 2 : Sur les contrôles et procédures
-    questions.append(
-        f"Quelles vérifications ou procédures spécifiques sont actuellement mises en place pour cette exigence ? "
-        f"Ces procédures permettent-elles de couvrir tous les cas identifiés dans les constats de l'auditeur ? "
-        f"(Points à vérifier selon le guide : {elements_a_verifier})"
-    )
-    
-    # Question 3 : Sur les mesures correctives
-    questions.append(
-        f"Quelles mesures spécifiques pourraient être mises en œuvre pour prévenir les risques identifiés dans le constat de l'auditeur ? "
-        f"Comment ces mesures peuvent-elles être adaptées aux produits concernés ? "
-        f"(Exemple d'analyse selon le guide : {exemple_questions})"
-    )
-    
+    questions = [
+        f"Selon le constat de l'auditeur, quelles pratiques actuelles pourraient être améliorées concernant : {exigence_text} ? (Bonnes pratiques : {bonnes_pratiques})",
+        f"Quelles vérifications ou procédures permettent d'assurer la conformité à cette exigence ? (Éléments à vérifier : {elements_a_verifier})",
+        f"Quelles mesures supplémentaires pourraient prévenir des risques similaires dans le futur ? (Exemples : {exemple_questions})",
+    ]
     return questions
 
 # Fonction principale
 def main():
-    st.markdown(
-        """
-        <div class="main-header">Assistant VisiPilot pour Plan d'Actions IFS</div>
-        """, 
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="main-header">Assistant VisiPilot pour Plan d\'Actions IFS</div>', unsafe_allow_html=True)
     
     with st.expander("Comment utiliser cette application"):
         st.write("""
-        **Étapes d'utilisation:**
+        **Étapes d'utilisation :**
         1. Téléchargez votre plan d'actions IFSv8.
-        2. Sélectionnez un numéro d'exigence.
-        3. Les recommandations générées seront basées sur une analyse détaillée de chaque non-conformité.
+        2. Sélectionnez une exigence.
+        3. Les recommandations seront basées sur une analyse détaillée.
         """)
 
     if 'recommendation_expanders' not in st.session_state:
         st.session_state['recommendation_expanders'] = {}
-    if 'show_popup' not in st.session_state:
-        st.session_state['show_popup'] = False
-    if 'additional_context' not in st.session_state:
-        st.session_state['additional_context'] = ""
-    if 'current_index' not in st.session_state:
-        st.session_state['current_index'] = None
 
-    api_key = st.text_input("Entrez votre clé API Groq:", type="password")
+    api_key = st.text_input("Entrez votre clé API Groq :", type="password")
     if api_key:
         st.session_state.api_key = api_key
 
     uploaded_file = st.file_uploader("Téléchargez votre plan d'action (fichier Excel)", type=["xlsx"])
-    
     if uploaded_file:
         action_plan_df = load_action_plan(uploaded_file)
         if action_plan_df is not None:
@@ -144,35 +157,17 @@ def main():
                 cols[2].write(row["Explication (par l’auditeur/l’évaluateur)"])
                 
                 if cols[3].button("Générer Recommandation", key=f"generate_{index}"):
-                    st.session_state['current_index'] = index
-                    st.session_state['show_popup'] = True
-                    st.session_state['additional_context'] = ""
-
-                if st.session_state['show_popup'] and st.session_state['current_index'] == index:
                     guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
                     if guide_row is not None:
                         questions = generate_dynamic_questions(guide_row, row)
-                        
-                        with st.form(key=f'additional_info_form_{index}'):
-                            st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
-                            responses = []
-                            for question in questions:
-                                responses.append(st.text_input(question))
-                            submit_button = st.form_submit_button("Soumettre")
-
-                            if submit_button:
-                                additional_context = "\n".join([f"Réponse {i+1}: {resp}" for i, resp in enumerate(responses) if resp])
-                                st.session_state['additional_context'] = additional_context
-                                st.session_state['show_popup'] = False
-
+                        with st.form(key=f"form_{index}"):
+                            responses = [st.text_input(question) for question in questions]
+                            if st.form_submit_button("Soumettre"):
+                                additional_context = "\n".join(responses)
                                 recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
-                                if recommendation_text:
-                                    st.success("Recommandation générée avec succès!")
-                                    st.session_state['recommendation_expanders'][index] = {'text': recommendation_text}
-
+                                st.session_state['recommendation_expanders'][index] = recommendation_text
                 if index in st.session_state['recommendation_expanders']:
-                    expander = st.expander(f"Recommandation pour Numéro d'exigence: {row['Numéro d\'exigence']}", expanded=True)
-                    expander.markdown(st.session_state['recommendation_expanders'][index]['text'])
+                    st.expander(f"Recommandation pour {row['Numéro d\'exigence']}").markdown(st.session_state['recommendation_expanders'][index])
 
 if __name__ == "__main__":
     main()
