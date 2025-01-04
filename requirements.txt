@@ -1,0 +1,5 @@
+streamlit
+pandas
+pocketgroq
+html2text
+openpyxl
