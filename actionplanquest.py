@@ -177,6 +177,7 @@ def main():
                 if cols[3].button("Générer Recommandation", key=f"generate_{index}"):
                     st.session_state['current_index'] = index
                     st.session_state['show_popup'] = True
+                    st.session_state['additional_context'] = ""  # Réinitialiser les réponses
 
                 # Afficher le popup si nécessaire
                 if st.session_state['show_popup'] and st.session_state['current_index'] == index:
