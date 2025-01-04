@@ -140,6 +140,10 @@ def main():
         st.session_state['recommendation_expanders'] = {}
     if 'responses' not in st.session_state:
         st.session_state['responses'] = {}
+    if 'show_popup' not in st.session_state:
+        st.session_state['show_popup'] = {}
+    if 'current_index' not in st.session_state:
+        st.session_state['current_index'] = None
 
     # Clé API Groq
     api_key = st.text_input("Entrez votre clé API Groq :", type="password")
@@ -162,6 +166,11 @@ def main():
                 
                 # Bouton pour générer les recommandations
                 if cols[3].button("Générer Recommandation", key=f"generate_{index}"):
+                    st.session_state['current_index'] = index
+                    st.session_state['show_popup'][index] = True
+
+                # Afficher le popup si nécessaire
+                if st.session_state['show_popup'].get(index, False):
                     guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
                     if guide_row is not None:
                         questions = generate_dynamic_questions(guide_row, row)
@@ -172,11 +181,19 @@ def main():
                                 additional_context = "\n".join(responses)
                                 recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
                                 st.session_state['recommendation_expanders'][index] = recommendation_text
-                
+                                st.session_state['show_popup'][index] = False
+                                st.session_state['responses'][index] = responses
+
                 # Afficher la recommandation si elle existe
                 if index in st.session_state['recommendation_expanders']:
                     expander = st.expander(f"Recommandation pour {row['Numéro d\'exigence']}")
                     expander.markdown(st.session_state['recommendation_expanders'][index])
+
+                # Afficher les réponses si elles existent
+                if index in st.session_state['responses']:
+                    st.write("Réponses fournies :")
+                    for i, response in enumerate(st.session_state['responses'][index]):
+                        st.write(f"Question {i+1}: {response}")
 
 if __name__ == "__main__":
     main()
