@@ -90,7 +90,7 @@ def get_guide_info(num_exigence, guide_df):
         st.error(f"Erreur lors de la recherche dans le guide : {str(e)}")
         return None
 
-# Générer des questions dynamiques
+# Générer des questions dynamiques pour l'analyse des causes
 def generate_dynamic_questions(guide_row, non_conformity):
     bonnes_pratiques = guide_row.get('Good practice', 'Non spécifié')
     elements_a_verifier = guide_row.get('Elements to check', 'Non spécifié')
@@ -99,8 +99,8 @@ def generate_dynamic_questions(guide_row, non_conformity):
     audit_comment = non_conformity['Explication (par l’auditeur/l’évaluateur)']
     
     questions = [
-        f"Selon le constat de l'auditeur, quelles pratiques actuelles pourraient être améliorées concernant : {exigence_text} ? (Bonnes pratiques : {bonnes_pratiques})",
-        f"Quelles vérifications ou procédures permettent d'assurer la conformité à cette exigence ? (Éléments à vérifier : {elements_a_verifier})",
+        f"Quelles sont les causes potentielles de cette non-conformité ? (Contexte : {audit_comment})",
+        f"Quelles sont les procédures actuelles pour répondre à cette exigence ? (Éléments à vérifier : {elements_a_verifier})",
         f"Quelles mesures supplémentaires pourraient prévenir des risques similaires dans le futur ? (Exemples : {exemple_questions})",
     ]
     return questions
@@ -111,7 +111,7 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
     if not groq:
         return "Erreur: clé API non fournie."
 
-    # Prompt détaillé et explicite
+    # Prompt détaillé et explicite avec approche CoT
     prompt = f"""
     En tant qu'expert en IFS Food 8 et en technologies alimentaires, pour chaque non-conformité constatée lors d'un audit, veuillez fournir :
     - une recommandation de correction : action immédiate visant à éliminer la non-conformité détectée en s'assurant qu'elle est adaptée au domaine d'activités du site industriel.
