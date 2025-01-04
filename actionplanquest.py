@@ -127,6 +127,15 @@ def get_guide_info(num_exigence, guide_df):
         return None
     return guide_row.iloc[0]
 
+# Fonction pour générer des questions dynamiques basées sur le guide
+def generate_dynamic_questions(guide_row):
+    questions = [
+        f"Quel est le type de produit concerné? (Contexte: {guide_row['Good practice']})",
+        f"Quel est le processus concerné? (Contexte: {guide_row['Elements to check']})",
+        f"Y a-t-il des contraintes spécifiques à prendre en compte? (Contexte: {guide_row['Example questions']})"
+    ]
+    return questions
+
 # Fonction principale
 def main():
     st.markdown(
@@ -181,21 +190,24 @@ def main():
 
                 # Afficher le popup si nécessaire
                 if st.session_state['show_popup'] and st.session_state['current_index'] == index:
-                    # Utiliser une clé unique pour chaque formulaire
-                    with st.form(key=f'additional_info_form_{index}'):
-                        st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
-                        q1 = st.text_input("Question 1: Quel est le type de produit concerné?")
-                        q2 = st.text_input("Question 2: Quel est le processus concerné?")
-                        q3 = st.text_input("Question 3: Y a-t-il des contraintes spécifiques à prendre en compte?")
-                        submit_button = st.form_submit_button("Soumettre")
+                    guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
+                    if guide_row is not None:
+                        # Générer des questions dynamiques basées sur le guide
+                        questions = generate_dynamic_questions(guide_row)
+                        
+                        # Utiliser une clé unique pour chaque formulaire
+                        with st.form(key=f'additional_info_form_{index}'):
+                            st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
+                            q1 = st.text_input(questions[0])
+                            q2 = st.text_input(questions[1])
+                            q3 = st.text_input(questions[2])
+                            submit_button = st.form_submit_button("Soumettre")
 
-                        if submit_button:
-                            additional_context = f"Type de produit: {q1}\nProcessus concerné: {q2}\nContraintes spécifiques: {q3}"
-                            st.session_state['additional_context'] = additional_context
-                            st.session_state['show_popup'] = False
+                            if submit_button:
+                                additional_context = f"Type de produit: {q1}\nProcessus concerné: {q2}\nContraintes spécifiques: {q3}"
+                                st.session_state['additional_context'] = additional_context
+                                st.session_state['show_popup'] = False
 
-                            guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
-                            if guide_row is not None:
                                 recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
                                 if recommendation_text:
                                     st.success("Recommandation générée avec succès!")
