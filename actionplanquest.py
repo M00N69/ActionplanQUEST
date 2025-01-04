@@ -44,7 +44,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Ajouter la bannière
 st.markdown('<div class="banner"></div>', unsafe_allow_html=True)
 
 # Initialiser PocketGroq
@@ -54,7 +53,7 @@ def get_groq_provider():
         return None
     return GroqProvider(api_key=st.session_state.api_key)
 
-# Fonction pour charger le fichier Excel avec le plan d'action
+# Charger le fichier Excel avec le plan d'action
 def load_action_plan(uploaded_file):
     try:
         action_plan_df = pd.read_excel(uploaded_file, header=11)
@@ -62,55 +61,22 @@ def load_action_plan(uploaded_file):
         action_plan_df.columns = ["Numéro d'exigence", "Exigence IFS Food 8", "Explication (par l’auditeur/l’évaluateur)"]
         return action_plan_df
     except Exception as e:
-        st.error(f"Erreur lors de la lecture du fichier : {str(e)}")
+        st.error(f"Erreur lors de la lecture du fichier: {str(e)}")
         return None
 
-# Fonction pour générer une recommandation avec Groq et CoT
-def generate_ai_recommendation_groq(non_conformity, guide_row, additional_context):
-    groq = get_groq_provider()
-    if not groq:
-        return "Erreur: clé API non fournie."
-
-    general_context = (
-        "En tant qu'expert en IFS Food 8 et en technologies alimentaires, pour chaque non-conformité constatée lors d'un audit, veuillez fournir :\n"
-        "- une recommandation de correction (action immédiate),\n"
-        "- le type de preuve attendu (élément tangible comme photo ou document),\n"
-        "- une analyse de la cause probable (identifier l'origine de la non-conformité),\n"
-        "- une recommandation d'action corrective (éliminer la cause racine pour prévenir la réapparition).\n"
-    )
-    prompt = f"""
-    {general_context}
-    Non-conformité issue d'un audit IFS Food 8 :
-    - Exigence : {non_conformity['Numéro d\'exigence']}
-    - Description : {non_conformity['Exigence IFS Food 8']}
-    - Constat détaillé : {non_conformity['Explication (par l’auditeur/l’évaluateur)']}
-    Guide IFSv8 :
-    - Bonnes pratiques : {guide_row['Good practice']}
-    - Éléments à vérifier : {guide_row['Elements to check']}
-    - Questions exemples : {guide_row['Example questions']}
-    Contexte supplémentaire :
-    - {additional_context}
-    Fournissez une recommandation complète en appliquant une réflexion étape par étape.
-    """
-    try:
-        return groq.generate(prompt, max_tokens=1500, temperature=0, use_cot=True)
-    except Exception as e:
-        st.error(f"Erreur lors de la génération de la recommandation : {str(e)}")
-        return None
-
-# Fonction pour récupérer les informations du guide
+# Récupérer les informations du guide
 def get_guide_info(num_exigence, guide_df):
     try:
         guide_row = guide_df[guide_df['NUM_REQ'].str.contains(str(num_exigence), na=False)]
         if guide_row.empty:
-            st.error(f"Aucune correspondance trouvée pour l'exigence : {num_exigence}")
+            st.error(f"Aucune correspondance trouvée pour le numéro d'exigence : {num_exigence}")
             return None
         return guide_row.iloc[0]
     except Exception as e:
         st.error(f"Erreur lors de la recherche dans le guide : {str(e)}")
         return None
 
-# Fonction pour générer des questions dynamiques
+# Générer des questions dynamiques
 def generate_dynamic_questions(guide_row, non_conformity):
     bonnes_pratiques = guide_row.get('Good practice', 'Non spécifié')
     elements_a_verifier = guide_row.get('Elements to check', 'Non spécifié')
@@ -124,20 +90,39 @@ def generate_dynamic_questions(guide_row, non_conformity):
     ]
     return questions
 
+# Générer une recommandation avec Groq et CoT
+def generate_ai_recommendation_groq(non_conformity, guide_row, additional_context):
+    groq = get_groq_provider()
+    if not groq:
+        return "Erreur: clé API non fournie."
+
+    prompt = f"""
+    Voici une non-conformité issue d'un audit IFS Food 8 :
+    - Exigence : {non_conformity['Numéro d\'exigence']}
+    - Description : {non_conformity['Exigence IFS Food 8']}
+    - Constat détaillé : {non_conformity['Explication (par l’auditeur/l’évaluateur)']}
+    Guide IFSv8 :
+    - Bonnes pratiques : {guide_row['Good practice']}
+    - Éléments à vérifier : {guide_row['Elements to check']}
+    - Questions exemples : {guide_row['Example questions']}
+    Contexte supplémentaire fourni :
+    - {additional_context}
+    Veuillez fournir une recommandation complète en appliquant une réflexion étape par étape.
+    """
+    try:
+        return groq.generate(prompt, max_tokens=1500, temperature=0, use_cot=True)
+    except Exception as e:
+        st.error(f"Erreur lors de la génération de la recommandation : {str(e)}")
+        return None
+
 # Fonction principale
 def main():
     st.markdown('<div class="main-header">Assistant VisiPilot pour Plan d\'Actions IFS</div>', unsafe_allow_html=True)
-    
-    with st.expander("Comment utiliser cette application"):
-        st.write("""
-        **Étapes d'utilisation :**
-        1. Téléchargez votre plan d'actions IFSv8.
-        2. Sélectionnez une exigence.
-        3. Les recommandations seront basées sur une analyse détaillée.
-        """)
 
     if 'recommendation_expanders' not in st.session_state:
         st.session_state['recommendation_expanders'] = {}
+    if 'responses' not in st.session_state:
+        st.session_state['responses'] = {}
 
     api_key = st.text_input("Entrez votre clé API Groq :", type="password")
     if api_key:
@@ -161,13 +146,16 @@ def main():
                     if guide_row is not None:
                         questions = generate_dynamic_questions(guide_row, row)
                         with st.form(key=f"form_{index}"):
+                            st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
                             responses = [st.text_input(question) for question in questions]
                             if st.form_submit_button("Soumettre"):
                                 additional_context = "\n".join(responses)
                                 recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
                                 st.session_state['recommendation_expanders'][index] = recommendation_text
+                
                 if index in st.session_state['recommendation_expanders']:
-                    st.expander(f"Recommandation pour {row['Numéro d\'exigence']}").markdown(st.session_state['recommendation_expanders'][index])
+                    expander = st.expander(f"Recommandation pour {row['Numéro d\'exigence']}")
+                    expander.markdown(st.session_state['recommendation_expanders'][index])
 
 if __name__ == "__main__":
     main()
