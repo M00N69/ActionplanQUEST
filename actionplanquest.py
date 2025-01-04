@@ -60,7 +60,7 @@ st.markdown('<div class="banner"></div>', unsafe_allow_html=True)
 
 # Initialiser PocketGroq
 def get_groq_provider():
-    if not st.session_state.api_key:
+    if not st.session_state.get('api_key'):
         st.error("Veuillez entrer votre clé API Groq.")
         return None
     return GroqProvider(api_key=st.session_state.api_key)
@@ -77,7 +77,7 @@ def load_action_plan(uploaded_file):
         return None
 
 # Fonction pour générer une recommandation avec Groq et CoT
-def generate_ai_recommendation_groq(non_conformity, guide_row):
+def generate_ai_recommendation_groq(non_conformity, guide_row, additional_context):
     groq = get_groq_provider()
     if not groq:
         return "Erreur: clé API non fournie."
@@ -105,6 +105,9 @@ def generate_ai_recommendation_groq(non_conformity, guide_row):
     - Bonnes pratiques : {guide_row['Good practice']}
     - Éléments à vérifier : {guide_row['Elements to check']}
     - Exemple de question à poser : {guide_row['Example questions']}
+    
+    Informations supplémentaires fournies par l'utilisateur :
+    - {additional_context}
     
     Veuillez fournir une recommandation complète avec analyse détaillée en appliquant une approche "Chain of Thought" (réflexion étape par étape).
     """
@@ -141,9 +144,16 @@ def main():
         3. Les recommandations générées seront basées sur une analyse détaillée de chaque non-conformité.
         """)
     
+    # Initialiser les états de session
     if 'recommendation_expanders' not in st.session_state:
         st.session_state['recommendation_expanders'] = {}
-    
+    if 'show_popup' not in st.session_state:
+        st.session_state['show_popup'] = False
+    if 'additional_context' not in st.session_state:
+        st.session_state['additional_context'] = ""
+    if 'current_index' not in st.session_state:
+        st.session_state['current_index'] = None
+
     # Clé API Groq
     api_key = st.text_input("Entrez votre clé API Groq:", type="password")
     if api_key:
@@ -164,26 +174,35 @@ def main():
                 cols[2].write(row["Explication (par l’auditeur/l’évaluateur)"])
                 
                 # Bouton pour générer les recommandations
-                cols[3].button(
-                    "Générer Recommandation", 
-                    key=f"generate_{index}",
-                    on_click=generate_recommendation_and_expand,
-                    args=(index, row, guide_df)
-                )
-                
+                if cols[3].button("Générer Recommandation", key=f"generate_{index}"):
+                    st.session_state['current_index'] = index
+                    st.session_state['show_popup'] = True
+
+                # Afficher le popup si nécessaire
+                if st.session_state['show_popup'] and st.session_state['current_index'] == index:
+                    with st.form(key='additional_info_form'):
+                        st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
+                        q1 = st.text_input("Question 1: Quel est le type de produit concerné?")
+                        q2 = st.text_input("Question 2: Quel est le processus concerné?")
+                        q3 = st.text_input("Question 3: Y a-t-il des contraintes spécifiques à prendre en compte?")
+                        submit_button = st.form_submit_button("Soumettre")
+
+                        if submit_button:
+                            additional_context = f"Type de produit: {q1}\nProcessus concerné: {q2}\nContraintes spécifiques: {q3}"
+                            st.session_state['additional_context'] = additional_context
+                            st.session_state['show_popup'] = False
+
+                            guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
+                            if guide_row is not None:
+                                recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
+                                if recommendation_text:
+                                    st.success("Recommandation générée avec succès!")
+                                    st.session_state['recommendation_expanders'][index] = {'text': recommendation_text}
+
+                # Afficher la recommandation si elle existe
                 if index in st.session_state['recommendation_expanders']:
                     expander = st.expander(f"Recommandation pour Numéro d'exigence: {row['Numéro d\'exigence']}", expanded=True)
                     expander.markdown(st.session_state['recommendation_expanders'][index]['text'])
-
-def generate_recommendation_and_expand(index, row, guide_df):
-    guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
-    
-    if guide_row is not None:
-        recommendation_text = generate_ai_recommendation_groq(row, guide_row)
-        
-        if recommendation_text:
-            st.success("Recommandation générée avec succès!")
-            st.session_state['recommendation_expanders'][index] = {'text': recommendation_text}
 
 if __name__ == "__main__":
     main()
