@@ -181,7 +181,8 @@ def main():
 
                 # Afficher le popup si nécessaire
                 if st.session_state['show_popup'] and st.session_state['current_index'] == index:
-                    with st.form(key='additional_info_form'):
+                    # Utiliser une clé unique pour chaque formulaire
+                    with st.form(key=f'additional_info_form_{index}'):
                         st.write("Veuillez répondre aux questions suivantes pour fournir plus de contexte :")
                         q1 = st.text_input("Question 1: Quel est le type de produit concerné?")
                         q2 = st.text_input("Question 2: Quel est le processus concerné?")
