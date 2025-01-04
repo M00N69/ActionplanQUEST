@@ -39,6 +39,19 @@ st.markdown(
         background-color: #0066cc;
         color: white;
     }
+    /* Style pour l'expander */
+    .st-emotion-cache-1h9usn1 {
+        background-color: #e0f7fa !important; /* Fond bleu clair pour l'expander */
+        border: 1px solid #004080 !important; /* Bordure bleu foncé */
+        border-radius: 5px;
+    }
+    /* Style pour le formulaire */
+    .stForm {
+        background-color: #f0f8ff; /* Fond clair pour le formulaire */
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -170,7 +183,7 @@ def main():
                     st.session_state['show_popup'][index] = True
 
                 # Afficher le popup si nécessaire
-                if st.session_state['show_popup'].get(index, False):
+                if st.session_state.get('show_popup', {}).get(index, False):
                     guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
                     if guide_row is not None:
                         questions = generate_dynamic_questions(guide_row, row)
@@ -186,7 +199,7 @@ def main():
 
                 # Afficher la recommandation si elle existe
                 if index in st.session_state['recommendation_expanders']:
-                    expander = st.expander(f"Recommandation pour {row['Numéro d\'exigence']}")
+                    expander = st.expander(f"Recommandation pour {row['Numéro d\'exigence']}", expanded=True)
                     expander.markdown(st.session_state['recommendation_expanders'][index])
 
                 # Afficher les réponses si elles existent
