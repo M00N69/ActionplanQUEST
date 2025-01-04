@@ -44,6 +44,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Ajouter la bannière
 st.markdown('<div class="banner"></div>', unsafe_allow_html=True)
 
 # Initialiser PocketGroq
@@ -82,6 +83,7 @@ def generate_dynamic_questions(guide_row, non_conformity):
     elements_a_verifier = guide_row.get('Elements to check', 'Non spécifié')
     exemple_questions = guide_row.get('Example questions', 'Non spécifié')
     exigence_text = non_conformity['Exigence IFS Food 8']
+    audit_comment = non_conformity['Explication (par l’auditeur/l’évaluateur)']
     
     questions = [
         f"Selon le constat de l'auditeur, quelles pratiques actuelles pourraient être améliorées concernant : {exigence_text} ? (Bonnes pratiques : {bonnes_pratiques})",
@@ -96,18 +98,32 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
     if not groq:
         return "Erreur: clé API non fournie."
 
+    # Prompt détaillé et explicite
     prompt = f"""
+    En tant qu'expert en IFS Food 8 et en technologies alimentaires, pour chaque non-conformité constatée lors d'un audit, veuillez fournir :
+    - une recommandation de correction : action immédiate visant à éliminer la non-conformité détectée en s'assurant qu'elle est adaptée au domaine d'activités du site industriel.
+    - le type de preuve attendu : élément tangible (photo, document,...) démontrant la mise en place de la correction.
+    - l'analyse de la cause probable : investigation approfondie pour identifier l'origine de la non-conformité en t'assurant que l'analyse est cohérente avec l'acvité du site  (industrie alimentaire).
+    - une recommandation d'action corrective : mesure à prendre pour éliminer la cause racine et prévenir la réapparition de la non-conformité.
+
+    Points importants à prendre en compte :
+    - Distinction correction / action corrective : La correction est une action immédiate pour rectifier une situation, tandis que l'action corrective vise à éliminer la cause racine et à empêcher la récurrence.
+    - Pertinence et exhaustivité : Les recommandations de correction et d'action corrective doivent être adaptées à la non-conformité et traiter tous les aspects du problème.
+
     Voici une non-conformité issue d'un audit IFS Food 8 :
     - Exigence : {non_conformity['Numéro d\'exigence']}
     - Description : {non_conformity['Exigence IFS Food 8']}
     - Constat détaillé : {non_conformity['Explication (par l’auditeur/l’évaluateur)']}
-    Guide IFSv8 :
+
+    Basé sur le guide IFSv8 pour cette exigence :
     - Bonnes pratiques : {guide_row['Good practice']}
     - Éléments à vérifier : {guide_row['Elements to check']}
     - Questions exemples : {guide_row['Example questions']}
-    Contexte supplémentaire fourni :
+
+    Informations supplémentaires fournies par l'utilisateur :
     - {additional_context}
-    Veuillez fournir une recommandation complète en appliquant une réflexion étape par étape.
+
+    Veuillez fournir une recommandation complète avec analyse détaillée en appliquant une approche "Chain of Thought" (réflexion étape par étape).
     """
     try:
         return groq.generate(prompt, max_tokens=1500, temperature=0, use_cot=True)
@@ -119,15 +135,18 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
 def main():
     st.markdown('<div class="main-header">Assistant VisiPilot pour Plan d\'Actions IFS</div>', unsafe_allow_html=True)
 
+    # Initialiser les états de session
     if 'recommendation_expanders' not in st.session_state:
         st.session_state['recommendation_expanders'] = {}
     if 'responses' not in st.session_state:
         st.session_state['responses'] = {}
 
+    # Clé API Groq
     api_key = st.text_input("Entrez votre clé API Groq :", type="password")
     if api_key:
         st.session_state.api_key = api_key
 
+    # Télécharger le fichier Excel
     uploaded_file = st.file_uploader("Téléchargez votre plan d'action (fichier Excel)", type=["xlsx"])
     if uploaded_file:
         action_plan_df = load_action_plan(uploaded_file)
@@ -141,6 +160,7 @@ def main():
                 cols[1].write(row["Exigence IFS Food 8"])
                 cols[2].write(row["Explication (par l’auditeur/l’évaluateur)"])
                 
+                # Bouton pour générer les recommandations
                 if cols[3].button("Générer Recommandation", key=f"generate_{index}"):
                     guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
                     if guide_row is not None:
@@ -153,6 +173,7 @@ def main():
                                 recommendation_text = generate_ai_recommendation_groq(row, guide_row, additional_context)
                                 st.session_state['recommendation_expanders'][index] = recommendation_text
                 
+                # Afficher la recommandation si elle existe
                 if index in st.session_state['recommendation_expanders']:
                     expander = st.expander(f"Recommandation pour {row['Numéro d\'exigence']}")
                     expander.markdown(st.session_state['recommendation_expanders'][index])
