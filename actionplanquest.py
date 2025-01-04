@@ -82,7 +82,7 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
     if not groq:
         return "Erreur: clé API non fournie."
 
-    # Instructions affinées
+    # Instructions affinées et détaillées
     general_context = (
         "En tant qu'expert en IFS Food 8 et en technologies alimentaires, pour chaque non-conformité constatée lors d'un audit, veuillez fournir :\n"
         "- une recommandation de correction : action immédiate visant à éliminer la non-conformité détectée en s'assurant qu'elle est adaptée au domaine d'activités du site industriel.\n"
@@ -94,6 +94,7 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
         "- Pertinence et exhaustivité : Les recommandations de correction et d'action corrective doivent être adaptées à la non-conformité et traiter tous les aspects du problème.\n"
     )
     
+    # Prompt détaillé et explicite
     prompt = f"""
     {general_context}
     Voici une non-conformité issue d'un audit IFS Food 8 :
@@ -114,7 +115,7 @@ def generate_ai_recommendation_groq(non_conformity, guide_row, additional_contex
 
     try:
         # Analyse toujours avec CoT activé
-        return groq.generate(prompt, max_tokens=1000, temperature=0, use_cot=True)
+        return groq.generate(prompt, max_tokens=1500, temperature=0, use_cot=True)
     except Exception as e:
         st.error(f"Erreur lors de la génération de la recommandation : {str(e)}")
         return None
@@ -140,9 +141,9 @@ def generate_dynamic_questions(guide_row, non_conformity):
     
     # Générer des questions techniques et spécifiques en français
     questions = [
-        f"Quel est le type de produit concerné et comment cela influence-t-il la gestion des risques ? (Orientation: {good_practice})",
-        f"Quelles sont les procédures actuelles pour répondre à cette exigence ? (Orientation: {elements_to_check})",
-        f"Quelles mesures supplémentaires pourriez-vous mettre en place pour améliorer la conformité ? (Orientation: {example_questions})"
+        f"Quel est le type de produit concerné et comment cela influence-t-il les procédures de nettoyage et de désinfection ? (Orientation: {good_practice})",
+        f"Quelles sont les procédures actuelles pour nettoyer et désinfecter la machine concernée ? (Orientation: {elements_to_check})",
+        f"Quelles mesures supplémentaires pourriez-vous mettre en place pour garantir que la machine soit correctement nettoyée et désinfectée ? (Orientation: {example_questions})"
     ]
     
     return questions
