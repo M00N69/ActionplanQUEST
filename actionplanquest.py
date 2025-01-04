@@ -127,13 +127,24 @@ def get_guide_info(num_exigence, guide_df):
         return None
     return guide_row.iloc[0]
 
-# Fonction pour générer des questions dynamiques basées sur le guide
-def generate_dynamic_questions(guide_row):
+# Fonction pour générer des questions dynamiques basées sur le guide, l'exigence et les commentaires de l'auditeur
+def generate_dynamic_questions(guide_row, non_conformity):
+    # Extraire les informations du guide
+    good_practice = guide_row['Good practice']
+    elements_to_check = guide_row['Elements to check']
+    example_questions = guide_row['Example questions']
+    
+    # Extraire les informations de l'exigence et du commentaire de l'auditeur
+    exigence_text = non_conformity['Exigence IFS Food 8']
+    audit_comment = non_conformity['Explication (par l’auditeur/l’évaluateur)']
+    
+    # Générer des questions techniques et spécifiques
     questions = [
-        f"Quel est le type de produit concerné? (Contexte: {guide_row['Good practice']})",
-        f"Quel est le processus concerné? (Contexte: {guide_row['Elements to check']})",
-        f"Y a-t-il des contraintes spécifiques à prendre en compte? (Contexte: {guide_row['Example questions']})"
+        f"Quel est le type de produit concerné et comment cela influence-t-il la gestion des risques ? (Contexte: {good_practice})",
+        f"Quelles sont les procédures actuelles pour répondre à cette exigence ? (Contexte: {elements_to_check})",
+        f"Quelles mesures supplémentaires pourriez-vous mettre en place pour améliorer la conformité ? (Contexte: {example_questions})"
     ]
+    
     return questions
 
 # Fonction principale
@@ -192,8 +203,8 @@ def main():
                 if st.session_state['show_popup'] and st.session_state['current_index'] == index:
                     guide_row = get_guide_info(row["Numéro d'exigence"], guide_df)
                     if guide_row is not None:
-                        # Générer des questions dynamiques basées sur le guide
-                        questions = generate_dynamic_questions(guide_row)
+                        # Générer des questions dynamiques basées sur le guide, l'exigence et les commentaires de l'auditeur
+                        questions = generate_dynamic_questions(guide_row, row)
                         
                         # Utiliser une clé unique pour chaque formulaire
                         with st.form(key=f'additional_info_form_{index}'):
@@ -204,7 +215,7 @@ def main():
                             submit_button = st.form_submit_button("Soumettre")
 
                             if submit_button:
-                                additional_context = f"Type de produit: {q1}\nProcessus concerné: {q2}\nContraintes spécifiques: {q3}"
+                                additional_context = f"Type de produit: {q1}\nProcédures actuelles: {q2}\nMesures supplémentaires: {q3}"
                                 st.session_state['additional_context'] = additional_context
                                 st.session_state['show_popup'] = False
 
